@@ -645,7 +645,11 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
     $response = $elastica_type->search($elastica_query);
 
     // Parse response.
-    return $this->parseSearchResponse($response, $query);
+    if (!empty($response)) {
+      $search_result = $this->parseSearchResponse($response, $query);
+    }
+
+    return $search_result;
   }
 
   /**
