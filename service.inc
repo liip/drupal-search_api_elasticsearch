@@ -644,6 +644,12 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
     // Perform search.
     $response = $elastica_type->search($elastica_query);
 
+    // Show ElasticSearch query string from Elastica 
+    // as json output when views debug output is enabled.
+    if (function_exists('vpr') && $elastica_param_query = $elastica_query->getParam('query')) {
+        vpr(drupal_json_encode($elastica_param_query));   
+    }
+    
     // Parse response.
     if (!empty($response)) {
       $search_result = $this->parseSearchResponse($response, $query);
@@ -817,8 +823,7 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
    * Helper function that check if filter is set correct.
    */
   protected function correctFilter($filter_assoc, $index_fields, $ignored_field_id = '') {
-    if (!isset($filter_assoc['field_id']) || !isset($filter_assoc['filter_value'])
-        || !isset($filter_assoc['filter_operator'])) {
+    if (!isset($filter_assoc['field_id']) || !isset($filter_assoc['filter_operator'])) {
       throw new Exception(t('Incorrect filter criteria is using for searching!'));
     }
 
@@ -1163,7 +1168,7 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
         $sort['_score'] = $direction;
       }
       elseif (isset($index_fields[$field_id])) {
-        $sort[$field_id] = $direction;
+        $sort[$field_id] = array('order' => $direction, 'missing' => '_last');
       }
       else {
         throw new Exception(t('Incorrect sorting!.'));
