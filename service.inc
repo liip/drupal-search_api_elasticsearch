@@ -551,9 +551,25 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
   }
 
   /**
+   * Checks if the provided index exists in elasticsearch and creates it if not.
+   *
+   * @param SearchApiIndex $index
+   */
+  protected function ensureIndexExists(SearchApiIndex $index)
+  {
+      $index_name = $this->getIndexName($indexname);
+      $elastica_index = $this->elasticaClient->getIndex($index_name);
+
+      if (!$elastica_index->exists()) {
+          $this->addIndex($index);
+      }
+  }
+
+  /**
    * Overrides indexItems().
    */
   public function indexItems(SearchApiIndex $index, array $items) {
+    $this->ensureIndexExists($index);
     $elastica_type = $this->getElasticaType($index);
 
     if (empty($elastica_type) || empty($items)) {
@@ -644,12 +660,12 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
     // Perform search.
     $response = $elastica_type->search($elastica_query);
 
-    // Show ElasticSearch query string from Elastica 
+    // Show ElasticSearch query string from Elastica
     // as json output when views debug output is enabled.
     if (function_exists('vpr') && $elastica_param_query = $elastica_query->getParam('query')) {
-        vpr(drupal_json_encode($elastica_param_query));   
+        vpr(drupal_json_encode($elastica_param_query));
     }
-    
+
     // Parse response.
     if (!empty($response)) {
       $search_result = $this->parseSearchResponse($response, $query);
