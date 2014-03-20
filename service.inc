@@ -557,7 +557,7 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
    */
   protected function ensureIndexExists(SearchApiIndex $index)
   {
-      $index_name = $this->getIndexName($indexname);
+      $index_name = $this->getIndexName($index);
       $elastica_index = $this->elasticaClient->getIndex($index_name);
 
       if (!$elastica_index->exists()) {
