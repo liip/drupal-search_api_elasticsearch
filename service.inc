@@ -1135,7 +1135,10 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
         // This is just a stopgap until we can determine the right(TM) way to
         // expose the ability to choose analyzers. Snowball is a decent
         // default.
-        $query_search_string->setParam('analyzer', 'snowball');
+
+	// Don't mess with analyzers, just use the default
+        // Patched for node search
+        //$query_search_string->setParam('analyzer', 'snowball')
       }
     }
 
