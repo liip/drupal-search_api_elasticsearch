@@ -894,7 +894,7 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
       if ($parse_mode == 'direct') {
         // fix uneven '"', '(', ')'
         $search_term = ($negation === TRUE ? 'NOT ' : '') . implode(" {$conjunction} ", $values);
-        $count = strpos($search_term, '"');
+        $count = substr_count ($search_term, '"');
         if (($count % 2) != 0) {
           $search_term = str_replace('"', '', $search_term);
         }
