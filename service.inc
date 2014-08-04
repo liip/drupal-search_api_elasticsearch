@@ -891,7 +891,19 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
       }
     }
     if (!empty($values)) {
-      return ($negation === TRUE ? 'NOT ' : '') . '(' . implode(" {$conjunction} ", $values) . ')';
+      if ($parse_mode == 'direct') {
+        // fix uneven '"', '(', ')'
+        $search_term = ($negation === TRUE ? 'NOT ' : '') . implode(" {$conjunction} ", $values);
+        $count = strpos($search_term, '"');
+        if (($count % 2) != 0) {
+          $search_term = str_replace('"', '', $search_term);
+        }
+        $search_term = str_replace(array('(', ')'), '', $search_term);
+
+        return $search_term;
+      } else {
+        return ($negation === TRUE ? 'NOT ' : '') . '(' . implode(" {$conjunction} ", $values) . ')';
+      }
     }
     else {
       return '';
