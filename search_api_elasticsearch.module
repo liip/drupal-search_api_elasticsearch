@@ -421,3 +421,25 @@ function search_api_elasticsearch_edit_index_submit(array $form, array &$form_st
 function search_api_elasticsearch_add_index_submit(array $form, array &$form_state) {
   form_state_values_clean($form_state);
 }
+
+/**
+ * Hook is called to fetch custom index mapping
+ *
+ * @return array
+ */
+function hook_search_api_elasticsearch_get_mapping_override(SearchApiIndex $index, array $properties) {
+
+  return array();
+}
+
+/**
+ * Hook is called to fetch custom index mapping
+ *
+ * @return array
+ */
+function hook_search_api_elasticsearch_get_index_settings_override(SearchApiIndex $index, array $options) {
+
+  return array();
+}
+
+

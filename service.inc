@@ -479,7 +479,10 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
     $elastica_index = $this->getElasticaIndex($index);
     if (!empty($elastica_index)) {
       try {
-        $response = $elastica_index->create($index->options, TRUE);
+        // Adds custom index options (analysis, _source, etc.)
+        $options = module_invoke_all('search_api_elasticsearch_get_index_settings_override', $index, $index->options);
+
+        $response = $elastica_index->create($options, TRUE);
       }
       catch (Exception $e) {
         watchdog('Elastic Search', check_plain($e->getMessage()), array(), WATCHDOG_ERROR);
@@ -514,6 +517,9 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
         foreach ($index->getFields() as $field_id => $field_data) {
           $properties[$field_id] = $this->getFieldMapping($field_data);
         }
+
+        // Adds custom type mapping
+        $properties = module_invoke_all('search_api_elasticsearch_get_mapping_override', $index, $properties);
 
         $mapping->setProperties($properties);
 
