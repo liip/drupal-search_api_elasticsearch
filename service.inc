@@ -480,7 +480,8 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
     if (!empty($elastica_index)) {
       try {
         // Adds custom index options (analysis, _source, etc.)
-        $options = module_invoke_all('search_api_elasticsearch_get_index_settings_override', $index, $index->options);
+        $options = $index->options;
+        drupal_alter('search_api_elasticsearch_index_settings', $options, $index);
 
         $response = $elastica_index->create($options, TRUE);
       }
@@ -519,7 +520,7 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
         }
 
         // Adds custom type mapping
-        $properties = module_invoke_all('search_api_elasticsearch_get_mapping_override', $index, $properties);
+        drupal_alter('search_api_elasticsearch_mapping', $properties, $index);
 
         $mapping->setProperties($properties);
 
