@@ -1147,6 +1147,8 @@ class SearchApiElasticsearchService extends SearchApiAbstractService {
 
       // Query string
       $search_string = $this->flattenKeys($keys, $query_options['parse mode']);
+      //FIX COM-1381
+      $search_string = str_replace(':;;:', '\/', $search_string);
 
       if (!empty($search_string)) {
         $query_search_string = new Elastica\Query\QueryString($search_string);
