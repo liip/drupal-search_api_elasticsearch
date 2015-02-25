@@ -171,7 +171,7 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
     $elastica_index = $this->getElasticaIndex($index);
     if (!empty($elastica_index)) {
       try {
-        drupal_alter('search_api_elasticsearch_elastica_add_index', $index->options);
+        drupal_alter('search_api_elasticsearch_elastica_add_index', $index->options, $index);
         $response = $elastica_index->create($index->options, TRUE);
       }
       catch (Exception $e) {
@@ -244,9 +244,25 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
   }
 
   /**
+   * Checks if the provided index exists in elasticsearch and creates it if not.
+   *
+   * @param SearchApiIndex $index
+   */
+  protected function ensureIndexExists(SearchApiIndex $index)
+  {
+    $index_name = $this->getIndexName($index);
+    $elastica_index = $this->elasticaClient->getIndex($index_name);
+
+    if (!$elastica_index->exists()) {
+      $this->addIndex($index);
+    }
+  }
+
+  /**
    * Overrides indexItems().
    */
   public function indexItems(SearchApiIndex $index, array $items) {
+    $this->ensureIndexExists($index);
     $elastica_type = $this->getElasticaType($index);
 
     if (empty($elastica_type) || empty($items)) {
@@ -349,7 +365,11 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
     }
 
     // Parse response.
-    return $this->parseSearchResponse($response, $query);
+    if (!empty($response)) {
+      $search_result = $this->parseSearchResponse($response, $query);
+    }
+
+    return $search_result;
   }
 
   /**
