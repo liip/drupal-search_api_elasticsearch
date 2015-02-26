@@ -533,8 +533,7 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
    * Helper function that check if filter is set correct.
    */
   protected function correctFilter($filter_assoc, $index_fields, $ignored_field_id = '') {
-    if (!array_key_exists('field_id', $filter_assoc) || !array_key_exists('filter_value', $filter_assoc)
-        || !isset($filter_assoc['filter_operator'])) {
+    if (!array_key_exists('field_id', $filter_assoc) || !isset($filter_assoc['filter_operator'])) {
       throw new Exception(t('Incorrect filter criteria is using for searching!'));
     }
 
@@ -867,6 +866,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
 
       // Query string.
       $search_string = $this->flattenKeys($keys, $query_options['parse mode']);
+      // FIX COM-1381
+      $search_string = str_replace(':;;:', '\/', $search_string);
 
       if (!empty($search_string)) {
         $query_search_string = new Elastica\Query\QueryString($search_string);

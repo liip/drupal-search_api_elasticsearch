@@ -512,7 +512,7 @@ abstract class SearchApiElasticsearchAbstractService extends SearchApiAbstractSe
         $sort['_score'] = $direction;
       }
       elseif (isset($index_fields[$field_id])) {
-        $sort[$field_id] = $direction;
+        $sort[$field_id] = array('order' => $direction, 'missing' => '_last');;
       }
       else {
         throw new Exception(t('Incorrect sorting!.'));
@@ -875,7 +875,19 @@ abstract class SearchApiElasticsearchAbstractService extends SearchApiAbstractSe
       }
     }
     if (!empty($values)) {
-      return ($negation === TRUE ? 'NOT ' : '') . '(' . implode(" {$conjunction} ", $values) . ')';
+      if ($parse_mode == 'direct') {
+        // fix uneven '"', '(', ')'
+        $search_term = ($negation === TRUE ? 'NOT ' : '') . implode(" {$conjunction} ", $values);
+        $count = substr_count ($search_term, '"');
+        if (($count % 2) != 0) {
+          $search_term = str_replace('"', '', $search_term);
+        }
+        $search_term = str_replace(array('(', ')'), '', $search_term);
+
+        return $search_term;
+      } else {
+        return ($negation === TRUE ? 'NOT ' : '') . '(' . implode(" {$conjunction} ", $values) . ')';
+      }
     }
     else {
       return '';
