@@ -171,7 +171,7 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
     $elastica_index = $this->getElasticaIndex($index);
     if (!empty($elastica_index)) {
       try {
-        drupal_alter('search_api_elasticsearch_elastica_add_index', $index->options, $index);
+        drupal_alter('search_api_elasticsearch_elastica_add_index', $index, $index->options);
         $response = $elastica_index->create($index->options, TRUE);
       }
       catch (Exception $e) {
@@ -190,6 +190,10 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
    */
   public function fieldsUpdated(SearchApiIndex $index) {
     parent::fieldsUpdated($index);
+
+    // Ensure index exists
+    $this->ensureIndexExists($index);
+
     $elastica_index = $this->getElasticaIndex($index);
     if (!empty($elastica_index)) {
       $elastica_type = $elastica_index->getType($index->machine_name);
@@ -228,6 +232,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
    * Overrides removeIndex().
    */
   public function removeIndex($index) {
+    // Ensure index exists
+    $this->ensureIndexExists($index);
     $elastica_index = $this->getElasticaIndex($index);
     // PATCH - Only delete the index's data if the index isn't read-only.
     if (!empty($elastica_index) && $index->read_only != 1) {
@@ -244,24 +250,10 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
   }
 
   /**
-   * Checks if the provided index exists in elasticsearch and creates it if not.
-   *
-   * @param SearchApiIndex $index
-   */
-  protected function ensureIndexExists(SearchApiIndex $index)
-  {
-    $index_name = $this->getIndexName($index);
-    $elastica_index = $this->elasticaClient->getIndex($index_name);
-
-    if (!$elastica_index->exists()) {
-      $this->addIndex($index);
-    }
-  }
-
-  /**
    * Overrides indexItems().
    */
   public function indexItems(SearchApiIndex $index, array $items) {
+    // Ensure index exists
     $this->ensureIndexExists($index);
     $elastica_type = $this->getElasticaType($index);
 
@@ -313,6 +305,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
       }
     }
     elseif ($ids === 'all') {
+      // Ensure index exists
+      $this->ensureIndexExists($index);
       $elastica_type = $this->getElasticaType($index);
       if (!empty($elastica_type)) {
         $match_all = new Elastica\Query\MatchAll();
@@ -320,6 +314,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
       }
     }
     else {
+      // Ensure index exists
+      $this->ensureIndexExists($index);
       $elastica_type = $this->getElasticaType($index);
       if (!empty($elastica_type)) {
         $elastica_type->deleteIds($ids);
@@ -337,6 +333,9 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
 
     // Get index.
     $index = $query->getIndex();
+
+    // Ensure index exists
+    $this->ensureIndexExists($index);
 
     // Get index type.
     $elastica_type = $this->getElasticaType($index);
@@ -558,6 +557,21 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
   }
 
   /**
+   * Checks if the provided index exists in elasticsearch and creates it if not.
+   *
+   * @param SearchApiIndex $index
+   */
+  protected function ensureIndexExists(SearchApiIndex $index)
+  {
+    $index_name = $this->getIndexName($index);
+    $elastica_index = $this->elasticaClient->getIndex($index_name);
+
+    if (!$elastica_index->exists()) {
+      $this->addIndex($index, true);
+    }
+  }
+
+  /**
    * Helper function. Get an Elastica index.
    */
   public function getElasticaIndex(SearchApiIndex $index) {
@@ -757,6 +771,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
    */
   public function updateSettings(SearchApiIndex $index, $data) {
     try {
+      // Ensure index exists
+      $this->ensureIndexExists($index);
       $elastica_index = $this->getElasticaIndex($index);
       $elastica_index->close();
       $elastica_index->setSettings($data);
@@ -774,6 +790,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
    */
   public function getSettings(SearchApiIndex $index) {
     try {
+      // Ensure index exists
+      $this->ensureIndexExists($index);
       $elastica_index = $this->getElasticaIndex($index);
 
       if ($elastica_index) {
