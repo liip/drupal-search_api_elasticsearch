@@ -173,6 +173,7 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
       try {
         drupal_alter('search_api_elasticsearch_elastica_add_index', $index, $index->options);
         $response = $elastica_index->create($index->options, TRUE);
+        drupal_alter('search_api_elasticsearch_elastica_create_index', $index, $index->options, $elastica_index);
       }
       catch (Exception $e) {
         watchdog('Elasticsearch', check_plain($e->getMessage()), array(), WATCHDOG_ERROR);
