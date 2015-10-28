@@ -754,6 +754,7 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
         'id' => $id,
         'score' => $result->getScore(),
         'fields' => $result->getSource(),
+        'explanation' => $result->getExplanation(),
       );
     }
 
@@ -906,7 +907,13 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
       $spatials = $query_options['search_api_location'];
     }
 
+    $explain = false;
+    if (isset($query_options['explain'])) {
+      $explain = $query_options['explain'];
+    }
+
     return array(
+      'explain' => $explain,
       'query_offset' => $query_offset,
       'query_limit' => $query_limit,
       'query_search_string' => $query_search_string,
