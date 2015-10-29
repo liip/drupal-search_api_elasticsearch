@@ -377,7 +377,7 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
           $distance_string = new \Elastica\Query\QueryString($distance_query);
           $distance_string->setDefaultOperator('AND');
           $distance_string->setFields($org_query_string['fields']);
-          $distance_string->setBoost(10.0);
+          $distance_string->setBoost(100.0);
           // combine proxymity search with querysearch
           $combine_query = new \Elastica\Query\Bool ();
           $combine_query->addShould($distance_string);
@@ -387,6 +387,21 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
           $elastica_query->setParam('query', $org_query);
         }
       }
+    }
+
+    if (!empty($query_options['function_score'])) {
+      $org_query = $elastica_query->getQuery();
+      $fs = new \Elastica\Query\FunctionScore();
+      $fs->setParam('query', $org_query);
+      $fs->setBoostMode('replace');
+      $fs->addFunction('script_score', array(
+        'params' => array(
+          'now' => $query_options['function_score']['params']['now'],
+          'boostframe' => $query_options['function_score']['params']['boostframe']
+        ),
+        'script' => "_score + max((boostframe -1 * ((now - doc['" . $query_options['function_score']['field'] . "'].value) / 60 / 60 / 24)), 0.0)",
+      ));
+      $elastica_query->setParam('query', $fs->toArray());
     }
 
     $response = SearchApiElasticsearchElasticaSearcher::search($elastica_type, $elastica_query, $query_options, $query);
@@ -956,10 +971,16 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
       $set_default_operator = $query_options['set_default_operator'];
     }
 
+    $function_score = false;
+    if (isset($query_options['function_score'])) {
+      $function_score = $query_options['function_score'];
+    }
+
     return array(
       'explain' => $explain,
       'replace_search_string' => $replace_search_string,
       'set_default_operator' => $set_default_operator,
+      'function_score' => $function_score,
       'query_offset' => $query_offset,
       'query_limit' => $query_limit,
       'query_search_string' => $query_search_string,
