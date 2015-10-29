@@ -355,6 +355,34 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
     // Add facets.
     $this->addSearchFacets($elastica_query, $query);
 
+    if ($query_options['replace_search_string']) {
+      $org_query = $elastica_query->getQuery();
+      if (!empty($org_query['filtered']['query']['query_string'])) {
+        $org_query_string = $org_query['filtered']['query']['query_string'];
+        if (strpos($org_query_string['query'], '"') === FALSE && count(explode(' ', $org_query_string['query'])) > 1) {
+          $distance_query = strtolower($org_query_string['query']);
+          //FIX COM-1381
+          $distance_query = str_replace(':;;:', '\/', $distance_query);
+          // remove reserved characters
+          $reserverd_characters = array('+', '-', '&&', '||', '!', '(', ')', '{', '}', '[', ']', '^', '"', '~', '*', '?', ':', '\\', '/', 'and', 'or');
+          // build proxymity search
+          $distance_query = str_replace($reserverd_characters, '', $distance_query);
+          $distance_query = '"' . $distance_query . '"~30';
+          $distance_string = new \Elastica\Query\QueryString($distance_query);
+          $distance_string->setDefaultOperator('AND');
+          $distance_string->setFields($org_query_string['fields']);
+          $distance_string->setBoost(10.0);
+          // combine proxymity search with querysearch
+          $combine_query = new \Elastica\Query\Bool ();
+          $combine_query->addShould($distance_string);
+          $combine_query->addShould(array('query_string' => $org_query_string));
+          // replace original query
+          $org_query['filtered']['query'] = $combine_query->toArray();
+          $elastica_query->setParam('query', $org_query);
+        }
+      }
+    }
+
     $response = SearchApiElasticsearchElasticaSearcher::search($elastica_type, $elastica_query, $query_options, $query);
 
     // Show Elasticsearch query string from Elastica
@@ -912,8 +940,14 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
       $explain = $query_options['explain'];
     }
 
+    $replace_search_string = false;
+    if (isset($query_options['replace_search_string'])) {
+      $replace_search_string = $query_options['replace_search_string'];
+    }
+
     return array(
       'explain' => $explain,
+      'replace_search_string' => $replace_search_string,
       'query_offset' => $query_offset,
       'query_limit' => $query_limit,
       'query_search_string' => $query_search_string,
