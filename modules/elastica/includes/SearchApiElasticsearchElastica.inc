@@ -355,6 +355,12 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
     // Add facets.
     $this->addSearchFacets($elastica_query, $query);
 
+    if (!empty($query_options['set_default_operator'])) {
+      $org_query = $elastica_query->getQuery();
+      $org_query['filtered']['query']['query_string']['default_operator'] = $query_options['set_default_operator'];
+      $elastica_query->setParam('query', $org_query);
+    }
+
     if ($query_options['replace_search_string']) {
       $org_query = $elastica_query->getQuery();
       if (!empty($org_query['filtered']['query']['query_string'])) {
@@ -945,9 +951,15 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
       $replace_search_string = $query_options['replace_search_string'];
     }
 
+    $set_default_operator = false;
+    if (isset($query_options['set_default_operator'])) {
+      $set_default_operator = $query_options['set_default_operator'];
+    }
+
     return array(
       'explain' => $explain,
       'replace_search_string' => $replace_search_string,
+      'set_default_operator' => $set_default_operator,
       'query_offset' => $query_offset,
       'query_limit' => $query_limit,
       'query_search_string' => $query_search_string,
