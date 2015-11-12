@@ -404,6 +404,10 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
       $elastica_query->setParam('query', $fs->toArray());
     }
 
+    if (!empty($query_options['set_highlight'])) {
+      $elastica_query->setHighlight($query_options['set_highlight']);
+    }
+
     $response = SearchApiElasticsearchElasticaSearcher::search($elastica_type, $elastica_query, $query_options, $query);
 
     // Show Elasticsearch query string from Elastica
@@ -804,6 +808,7 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
         'score' => $result->getScore(),
         'fields' => $result->getSource(),
         'explanation' => $result->getExplanation(),
+        'highlights' => $result->getHighlights(),
       );
     }
 
@@ -976,11 +981,17 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
       $function_score = $query_options['function_score'];
     }
 
+    $set_highlight = false;
+    if (isset($query_options['set_highlight'])) {
+      $set_highlight = $query_options['set_highlight'];
+    }
+
     return array(
       'explain' => $explain,
       'replace_search_string' => $replace_search_string,
       'set_default_operator' => $set_default_operator,
       'function_score' => $function_score,
+      'set_highlight' => $set_highlight,
       'query_offset' => $query_offset,
       'query_limit' => $query_limit,
       'query_search_string' => $query_search_string,
