@@ -369,8 +369,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
           $distance_query = strtolower($org_query_string['query']);
           //FIX COM-1381
           $distance_query = str_replace(':;;:', '\/', $distance_query);
-          // remove reserved characters
-          $reserverd_characters = array('+', '-', '&&', '||', '!', '(', ')', '{', '}', '[', ']', '^', '"', '~', '*', '?', ':', '\\', '/', 'and', 'or');
+          // remove reserved characters (without * used for wildcard)
+          $reserverd_characters = array('+', '-', '&&', '||', '!', '(', ')', '{', '}', '[', ']', '^', '"', '~',  '?', ':', '\\', '/', 'and', 'or');
           // build proxymity search
           $distance_query = str_replace($reserverd_characters, '', $distance_query);
           $distance_query = '"' . $distance_query . '"~30';
@@ -399,7 +399,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
           'now' => $query_options['function_score']['params']['now'],
           'boostframe' => $query_options['function_score']['params']['boostframe']
         ),
-        'script' => "_score + max((boostframe -1 * ((now - doc['" . $query_options['function_score']['field'] . "'].value) / 60 / 60 / 24)), 0.0)",
+        // date boosts with addition of 0 to 3.6 to the score
+        'script' => "_score + (max((boostframe - ((now - (doc['" . $query_options['function_score']['field'] . "'].value /1000)) / 60 / 60 / 24)), 0.0)/10)",
       ));
       $elastica_query->setParam('query', $fs->toArray());
     }
