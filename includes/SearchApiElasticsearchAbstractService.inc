@@ -882,7 +882,13 @@ abstract class SearchApiElasticsearchAbstractService extends SearchApiAbstractSe
         if (($count % 2) != 0) {
           $search_term = str_replace('"', '', $search_term);
         }
-        $search_term = str_replace(array('(', ')'), '', $search_term);
+        // remove invalid characters
+        $search_term = str_replace(array(':'), '', $search_term);
+        $count1 = substr_count ($search_term, '(');
+        $count2 = substr_count ($search_term, ')');
+        if ($count1 !== $count2) {
+          $search_term = str_replace(array('(', ')'), '', $search_term);
+        }
 
         return $search_term;
       } else {
