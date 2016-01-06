@@ -397,10 +397,11 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
       $fs->addFunction('script_score', array(
         'params' => array(
           'now' => $query_options['function_score']['params']['now'],
-          'boostframe' => $query_options['function_score']['params']['boostframe']
+          'boostframe' => $query_options['function_score']['params']['boostframe'],
+          'datefactor' => $query_options['function_score']['params']['datefactor'],
         ),
         // date boosts with addition of 0 to 3.6 to the score
-        'script' => "_score + (max((boostframe - ((now - (doc['" . $query_options['function_score']['field'] . "'].value /1000)) / 60 / 60 / 24)), 0.0)/10)",
+        'script' => "_score + (datefactor * (max((boostframe - ((now - doc['" . $query_options['function_score']['field'] . "'].value) / 60 / 60 / 24)), 0.0)))",
       ));
       $elastica_query->setParam('query', $fs->toArray());
     }
