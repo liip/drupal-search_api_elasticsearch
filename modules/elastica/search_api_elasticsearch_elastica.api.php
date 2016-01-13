@@ -18,6 +18,17 @@ function hook_search_api_elasticsearch_elastica_add_index_alter(array $options) 
 }
 
 /**
+ * Allows modules to react after index creation.
+ *
+ * @param SearchApiIndex $index
+ * @param array $options
+ * @param \Elastica\Index $elastica_index
+ */
+function hook_search_api_elasticsearch_elastica_create_index(SearchApiIndex $index, array $options, \Elastica\Index $elastica_index) {
+
+}
+
+/**
  * Allows modules to alter Elastica query.
  *
  * @param \Elastica\Query $elastica_query

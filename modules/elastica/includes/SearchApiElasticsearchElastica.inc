@@ -171,8 +171,9 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
     $elastica_index = $this->getElasticaIndex($index);
     if (!empty($elastica_index)) {
       try {
-        drupal_alter('search_api_elasticsearch_elastica_add_index', $index->options);
+        drupal_alter('search_api_elasticsearch_elastica_add_index', $index, $index->options);
         $response = $elastica_index->create($index->options, TRUE);
+        drupal_alter('search_api_elasticsearch_elastica_create_index', $index, $index->options, $elastica_index);
       }
       catch (Exception $e) {
         watchdog('Elasticsearch', check_plain($e->getMessage()), array(), WATCHDOG_ERROR);
@@ -190,6 +191,10 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
    */
   public function fieldsUpdated(SearchApiIndex $index) {
     parent::fieldsUpdated($index);
+
+    // Ensure index exists
+    $this->ensureIndexExists($index);
+
     $elastica_index = $this->getElasticaIndex($index);
     if (!empty($elastica_index)) {
       $elastica_type = $elastica_index->getType($index->machine_name);
@@ -228,6 +233,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
    * Overrides removeIndex().
    */
   public function removeIndex($index) {
+    // Ensure index exists
+    $this->ensureIndexExists($index);
     $elastica_index = $this->getElasticaIndex($index);
     // PATCH - Only delete the index's data if the index isn't read-only.
     if (!empty($elastica_index) && $index->read_only != 1) {
@@ -247,6 +254,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
    * Overrides indexItems().
    */
   public function indexItems(SearchApiIndex $index, array $items) {
+    // Ensure index exists
+    $this->ensureIndexExists($index);
     $elastica_type = $this->getElasticaType($index);
 
     if (empty($elastica_type) || empty($items)) {
@@ -297,6 +306,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
       }
     }
     elseif ($ids === 'all') {
+      // Ensure index exists
+      $this->ensureIndexExists($index);
       $elastica_type = $this->getElasticaType($index);
       if (!empty($elastica_type)) {
         $match_all = new Elastica\Query\MatchAll();
@@ -304,6 +315,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
       }
     }
     else {
+      // Ensure index exists
+      $this->ensureIndexExists($index);
       $elastica_type = $this->getElasticaType($index);
       if (!empty($elastica_type)) {
         $elastica_type->deleteIds($ids);
@@ -322,6 +335,9 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
     // Get index.
     $index = $query->getIndex();
 
+    // Ensure index exists
+    $this->ensureIndexExists($index);
+
     // Get index type.
     $elastica_type = $this->getElasticaType($index);
 
@@ -339,6 +355,61 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
     // Add facets.
     $this->addSearchFacets($elastica_query, $query);
 
+    if (!empty($query_options['set_default_operator'])) {
+      $org_query = $elastica_query->getQuery();
+      $org_query['filtered']['query']['query_string']['default_operator'] = $query_options['set_default_operator'];
+      $elastica_query->setParam('query', $org_query);
+    }
+
+    if ($query_options['replace_search_string']) {
+      $org_query = $elastica_query->getQuery();
+      if (!empty($org_query['filtered']['query']['query_string'])) {
+        $org_query_string = $org_query['filtered']['query']['query_string'];
+        if (strpos($org_query_string['query'], '"') === FALSE && count(explode(' ', $org_query_string['query'])) > 1) {
+          $distance_query = strtolower($org_query_string['query']);
+          //FIX COM-1381
+          $distance_query = str_replace(':;;:', '\/', $distance_query);
+          // remove reserved characters (without * used for wildcard)
+          $reserverd_characters = array('+', '-', '&&', '||', '!', '(', ')', '{', '}', '[', ']', '^', '"', '~',  '?', ':', '\\', '/', ' and ', ' or ');
+          // build proxymity search
+          $distance_query = str_replace($reserverd_characters, '', $distance_query);
+          $distance_query = '"' . $distance_query . '"~30';
+          $distance_string = new \Elastica\Query\QueryString($distance_query);
+          $distance_string->setDefaultOperator('AND');
+          $distance_string->setFields($org_query_string['fields']);
+          $distance_string->setBoost(100.0);
+          // combine proxymity search with querysearch
+          $combine_query = new \Elastica\Query\Bool ();
+          $combine_query->addShould($distance_string);
+          $combine_query->addShould(array('query_string' => $org_query_string));
+          // replace original query
+          $org_query['filtered']['query'] = $combine_query->toArray();
+          $elastica_query->setParam('query', $org_query);
+        }
+      }
+    }
+
+    if (!empty($query_options['function_score'])) {
+      $org_query = $elastica_query->getQuery();
+      $fs = new \Elastica\Query\FunctionScore();
+      $fs->setParam('query', $org_query);
+      $fs->setBoostMode('replace');
+      $fs->addFunction('script_score', array(
+        'params' => array(
+          'now' => $query_options['function_score']['params']['now'],
+          'boostframe' => $query_options['function_score']['params']['boostframe'],
+          'datefactor' => $query_options['function_score']['params']['datefactor'],
+        ),
+        // date boosts with addition of 0 to 3.6 to the score
+        'script' => "_score + (datefactor * (max((boostframe - ((now - doc['" . $query_options['function_score']['field'] . "'].value) / 60 / 60 / 24)), 0.0)))",
+      ));
+      $elastica_query->setParam('query', $fs->toArray());
+    }
+
+    if (!empty($query_options['set_highlight'])) {
+      $elastica_query->setHighlight($query_options['set_highlight']);
+    }
+
     $response = SearchApiElasticsearchElasticaSearcher::search($elastica_type, $elastica_query, $query_options, $query);
 
     // Show Elasticsearch query string from Elastica
@@ -349,7 +420,11 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
     }
 
     // Parse response.
-    return $this->parseSearchResponse($response, $query);
+    if (!empty($response)) {
+      $search_result = $this->parseSearchResponse($response, $query);
+    }
+
+    return $search_result;
   }
 
   /**
@@ -514,8 +589,7 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
    * Helper function that check if filter is set correct.
    */
   protected function correctFilter($filter_assoc, $index_fields, $ignored_field_id = '') {
-    if (!array_key_exists('field_id', $filter_assoc) || !array_key_exists('filter_value', $filter_assoc)
-        || !isset($filter_assoc['filter_operator'])) {
+    if (!array_key_exists('field_id', $filter_assoc) || !isset($filter_assoc['filter_operator'])) {
       throw new Exception(t('Incorrect filter criteria is using for searching!'));
     }
 
@@ -535,6 +609,21 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
     }
 
     return TRUE;
+  }
+
+  /**
+   * Checks if the provided index exists in elasticsearch and creates it if not.
+   *
+   * @param SearchApiIndex $index
+   */
+  protected function ensureIndexExists(SearchApiIndex $index)
+  {
+    $index_name = $this->getIndexName($index);
+    $elastica_index = $this->elasticaClient->getIndex($index_name);
+
+    if (!$elastica_index->exists()) {
+      $this->addIndex($index, true);
+    }
   }
 
   /**
@@ -720,6 +809,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
         'id' => $id,
         'score' => $result->getScore(),
         'fields' => $result->getSource(),
+        'explanation' => $result->getExplanation(),
+        'highlights' => $result->getHighlights(),
       );
     }
 
@@ -737,6 +828,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
    */
   public function updateSettings(SearchApiIndex $index, $data) {
     try {
+      // Ensure index exists
+      $this->ensureIndexExists($index);
       $elastica_index = $this->getElasticaIndex($index);
       $elastica_index->close();
       $elastica_index->setSettings($data);
@@ -754,6 +847,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
    */
   public function getSettings(SearchApiIndex $index) {
     try {
+      // Ensure index exists
+      $this->ensureIndexExists($index);
       $elastica_index = $this->getElasticaIndex($index);
 
       if ($elastica_index) {
@@ -829,6 +924,8 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
 
       // Query string.
       $search_string = $this->flattenKeys($keys, $query_options['parse mode']);
+      // FIX COM-1381
+      $search_string = str_replace(':;;:', '\/', $search_string);
 
       if (!empty($search_string)) {
         $query_search_string = new Elastica\Query\QueryString($search_string);
@@ -866,7 +963,37 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
       $spatials = $query_options['search_api_location'];
     }
 
+    $explain = false;
+    if (isset($query_options['explain'])) {
+      $explain = $query_options['explain'];
+    }
+
+    $replace_search_string = false;
+    if (isset($query_options['replace_search_string'])) {
+      $replace_search_string = $query_options['replace_search_string'];
+    }
+
+    $set_default_operator = false;
+    if (isset($query_options['set_default_operator'])) {
+      $set_default_operator = $query_options['set_default_operator'];
+    }
+
+    $function_score = false;
+    if (isset($query_options['function_score'])) {
+      $function_score = $query_options['function_score'];
+    }
+
+    $set_highlight = false;
+    if (isset($query_options['set_highlight'])) {
+      $set_highlight = $query_options['set_highlight'];
+    }
+
     return array(
+      'explain' => $explain,
+      'replace_search_string' => $replace_search_string,
+      'set_default_operator' => $set_default_operator,
+      'function_score' => $function_score,
+      'set_highlight' => $set_highlight,
       'query_offset' => $query_offset,
       'query_limit' => $query_limit,
       'query_search_string' => $query_search_string,

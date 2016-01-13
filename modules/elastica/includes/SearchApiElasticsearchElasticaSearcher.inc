@@ -14,6 +14,10 @@ class SearchApiElasticsearchElasticaSearcher {
 
     drupal_alter('search_api_elasticsearch_elastica_query', $query, $search_api_query);
 
+    if ($options['explain'] === true) {
+      $query->setParam('explain', 'true');
+
+    }
     return $type->search($query);
   }
 
