@@ -370,7 +370,7 @@ class SearchApiElasticsearchElastica extends SearchApiElasticsearchAbstractServi
           //FIX COM-1381
           $distance_query = str_replace(':;;:', '\/', $distance_query);
           // remove reserved characters (without * used for wildcard)
-          $reserverd_characters = array('+', '-', '&&', '||', '!', '(', ')', '{', '}', '[', ']', '^', '"', '~',  '?', ':', '\\', '/', 'and', 'or');
+          $reserverd_characters = array('+', '-', '&&', '||', '!', '(', ')', '{', '}', '[', ']', '^', '"', '~',  '?', ':', '\\', '/', ' and ', ' or ');
           // build proxymity search
           $distance_query = str_replace($reserverd_characters, '', $distance_query);
           $distance_query = '"' . $distance_query . '"~30';
